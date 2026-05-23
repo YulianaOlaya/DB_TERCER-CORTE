@@ -4,13 +4,11 @@ const getAll = async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM product');
     res.json(rows);
-  } catch (err) {
-    console.error('Error obteniendo productos:', err);
-    res.status(500).json({ error: 'Error interno al obtener productos' });
+  } catch (error) {
+    console.error('Error al obtener productos:', error);
+    res.status(500).json({ error: error.message });
   }
 };
-
-
 
 const getById = async (req, res) => {
   try {
@@ -19,30 +17,36 @@ const getById = async (req, res) => {
       [req.params.id]
     );
     res.json(rows[0]);
-  } catch (err) {
-    console.error('Error obteniendo producto por id:', err);
-    res.status(500).json({ error: 'Error interno al obtener producto' });
+  } catch (error) {
+    console.error('Error al obtener producto:', error);
+    res.status(500).json({ error: error.message });
   }
 };
-
 
 const create = async (req, res) => {
   try {
     const { name, price } = req.body;
+
+    const [existing] = await db.query(
+      'SELECT id_product FROM product WHERE name = ? LIMIT 1',
+      [name]
+    );
+
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'Producto ya existe' });
+    }
 
     const [result] = await db.query(
       'INSERT INTO product (name, price) VALUES (?, ?)',
       [name, price]
     );
 
-    res.status(201).json({ id: result.insertId });
-  } catch (err) {
-    console.error('Error creando producto:', err);
-    res.status(500).json({ error: 'Error interno al crear producto' });
+    res.json({ id: result.insertId });
+  } catch (error) {
+    console.error('Error al crear producto:', error);
+    res.status(500).json({ error: error.message });
   }
 };
-
-
 
 const update = async (req, res) => {
   try {
@@ -53,15 +57,12 @@ const update = async (req, res) => {
       [name, price, req.params.id]
     );
 
-    res.json({ mensaje: 'Actualizado' });
-  } catch (err) {
-    console.error('Error actualizando producto:', err);
-    res.status(500).json({ error: 'Error interno al actualizar producto' });
+    res.json({ mensaje: "Actualizado" });
+  } catch (error) {
+    console.error('Error al actualizar producto:', error);
+    res.status(500).json({ error: error.message });
   }
 };
-
-
-
 
 const remove = async (req, res) => {
   try {
@@ -70,10 +71,10 @@ const remove = async (req, res) => {
       [req.params.id]
     );
 
-    res.json({ mensaje: 'Eliminado' });
-  } catch (err) {
-    console.error('Error eliminando producto:', err);
-    res.status(500).json({ error: 'Error interno al eliminar producto' });
+    res.json({ mensaje: "Eliminado" });
+  } catch (error) {
+    console.error('Error al eliminar producto:', error);
+    res.status(500).json({ error: error.message });
   }
 };
 

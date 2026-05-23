@@ -1,5 +1,13 @@
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   const catalogoCards = document.getElementById('catalogoCards');
+
+  // Productos fijos para mostrar al cargar
+  const productosFixos = [
+    { id_product: 'fijo_1', name: 'Collar de Oro', price: '15000', imagen: 'img/collar.jpg', descripcion: 'Hermoso collar de oro' },
+    { id_product: 'fijo_2', name: 'Camisa Estampada', price: '40000', imagen: 'img/camisa.jpg', descripcion: 'Camisa moderna y elegante' },
+    { id_product: 'fijo_3', name: 'Brownie de Chocolate', price: '16000', imagen: 'img/brownie2.jpg', descripcion: 'Delicioso brownie casero' },
+    { id_product: 'fijo_4', name: 'Accesorios Premium', price: '25000', imagen: 'img/producto1.jpg', descripcion: 'Accesorios de alta calidad' }
+  ];
 
   const createCard = (product) => {
     const card = document.createElement('div');
@@ -23,32 +31,69 @@ document.addEventListener('DOMContentLoaded', async () => {
     return card;
   };
 
-  if (window.location.protocol === 'file:') {
-    catalogoCards.innerHTML = '<div class="error">Abre esta página desde el servidor: http://localhost:5000/catalogo.html</div>';
-    return;
-  }
+  const BACKEND = 'http://localhost:5000';
 
-  try {
-    const response = await fetch('/product');
-
-    if (!response.ok) {
-      throw new Error(`Error al cargar productos: ${response.status} ${response.statusText}`);
-    }
-
-    const productos = await response.json();
-
+  const renderProducts = (productosApi) => {
+    // Limpiar y empezar con los productos fijos
     catalogoCards.innerHTML = '';
+    
+    // Mostrar primero los 4 productos fijos
+    productosFixos.forEach((product) => {
+      catalogoCards.appendChild(createCard(product));
+    });
 
-    if (!Array.isArray(productos) || productos.length === 0) {
-      catalogoCards.innerHTML = '<div class="empty">No hay productos disponibles.</div>';
+    // Luego agregar los productos de la API sin duplicados
+    if (Array.isArray(productosApi) && productosApi.length > 0) {
+      const seen = new Set();
+      const uniqueProducts = productosApi.filter((product) => {
+        const key = product.id_product || `${product.name}-${product.price}`;
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+
+      uniqueProducts.forEach((product) => {
+        catalogoCards.appendChild(createCard(product));
+      });
+    }
+  };
+
+  const loadProducts = async () => {
+    if (window.location.protocol === 'file:') {
+      catalogoCards.innerHTML = '<div class="error">Abre esta página desde el servidor: http://localhost:5000/catalogo.html</div>';
       return;
     }
 
-    productos.forEach((product) => {
-      catalogoCards.appendChild(createCard(product));
-    });
-  } catch (error) {
-    catalogoCards.innerHTML = `<div class="error">No se pudieron cargar los productos. ${error.message}</div>`;
-    console.error('Error fetch /product:', error);
-  }
+    const timestamp = new Date().getTime();
+    const relativeUrl = `/product?t=${timestamp}`;
+    const absoluteUrl = `${BACKEND}/product?t=${timestamp}`;
+
+    try {
+      // Intentar ruta relativa primero (misma origin)
+      let response = await fetch(relativeUrl, { cache: 'no-store' });
+
+      // Si la ruta relativa falla con 404 o no es ok, intentar la URL absoluta al backend
+      if (response.status === 404 || !response.ok) {
+        response = await fetch(absoluteUrl, { cache: 'no-store' });
+      }
+
+      if (!response.ok) {
+        throw new Error(`Error al cargar productos: ${response.status} ${response.statusText}`);
+      }
+
+      const productos = await response.json();
+      renderProducts(productos);
+    } catch (error) {
+      catalogoCards.innerHTML = `<div class="error">No se pudieron cargar los productos. ${error.message}</div>`;
+      console.error('Error fetch /product:', error);
+      // Mostrar al menos los productos fijos incluso si hay error
+      renderProducts([]);
+    }
+  };
+
+  // Cargar al inicio y cada 5s. Esto permite que, si abres con Live Server en :5500, se use el backend en :5000.
+  loadProducts();
+  setInterval(loadProducts, 5000);
 });
